@@ -2,6 +2,7 @@ package com.kkk.alarm
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Handler
@@ -19,6 +20,7 @@ interface Track {
 /**
  * 曲を開いて再生する。まずAndroid標準の MediaPlayer で開き、
  * 開けない形式（WMAなど）は VLC のエンジンで再生する。
+ * アラームとして鳴らすときは、VLC再生中だけメディア音量をアラーム音量に合わせる。
  */
 object Playback {
 
@@ -29,7 +31,8 @@ object Playback {
         if (!looksLikeWma(ctx, uri)) {
             openStandard(ctx, uri, attrs, loop, startVolume, onComplete)?.let { return it }
         }
-        return openVlc(ctx, uri, loop, startVolume, onComplete)
+        return openVlc(ctx, uri, loop, startVolume, onComplete,
+            matchAlarmVolume = attrs.usage == AudioAttributes.USAGE_ALARM)
     }
 
     private fun looksLikeWma(ctx: Context, uri: Uri): Boolean {
@@ -66,6 +69,7 @@ object Playback {
 
     private fun openVlc(
         ctx: Context, uri: Uri, loop: Boolean, vol: Float, onComplete: (() -> Unit)?,
+        matchAlarmVolume: Boolean,
     ): Track? {
         var pfd: ParcelFileDescriptor? = null
         var vlc: LibVLC? = null
@@ -91,6 +95,21 @@ object Playback {
                 }
             }
             p.volume = (vol * 100).toInt().coerceIn(0, 100)
+
+            // VLCはメディア音量で鳴るので、鳴っている間だけメディア音量をアラーム音量に合わせる
+            val am = ctx.getSystemService(AudioManager::class.java)
+            val savedMusic = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            var changed = false
+            if (matchAlarmVolume) {
+                try {
+                    val ratio = am.getStreamVolume(AudioManager.STREAM_ALARM).toFloat() /
+                            am.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1)
+                    val target = Math.round(ratio * am.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
+                        .coerceAtLeast(if (ratio > 0f) 1 else 0)
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+                    changed = true
+                } catch (_: Exception) { }
+            }
             p.play()
 
             val fd = pfd!!
@@ -104,6 +123,9 @@ object Playback {
                     try { p.release() } catch (_: Exception) { }
                     try { lib.release() } catch (_: Exception) { }
                     try { fd.close() } catch (_: Exception) { }
+                    if (changed) {
+                        try { am.setStreamVolume(AudioManager.STREAM_MUSIC, savedMusic, 0) } catch (_: Exception) { }
+                    }
                 }
             }.takeIf { !failed }
         } catch (_: Throwable) {
