@@ -110,6 +110,7 @@ class EditActivity : AppCompatActivity() {
             alarm.label = label.text.toString().trim()
             alarm.enabled = true
             AlarmStore.save(this, alarm)
+            Scheduler.cancelSnooze(this, alarm.id)   // 時刻を変えたら古いスヌーズは取り消す
             Scheduler.schedule(this, alarm)
             MainActivity.toastUntil(this, alarm)
             finish()

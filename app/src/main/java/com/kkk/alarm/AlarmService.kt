@@ -63,8 +63,9 @@ class AlarmService : Service() {
             }
         }
 
-        fun send(ctx: Context, action: String) {
-            ctx.startService(Intent(ctx, AlarmService::class.java).setAction(action))
+        fun send(ctx: Context, action: String, id: Int = ringingId) {
+            ctx.startService(Intent(ctx, AlarmService::class.java).setAction(action)
+                .putExtra(Scheduler.EXTRA_ID, id))
         }
 
         fun ensureChannel(ctx: Context) {
@@ -94,15 +95,19 @@ class AlarmService : Service() {
                 val a = AlarmStore.get(this, intent.getIntExtra(Scheduler.EXTRA_ID, -1))
                 if (a == null) { stopSelf(); return START_NOT_STICKY }
                 // 決まった時刻に鳴った（スヌーズではない）ならスヌーズ間隔を最初に戻す
-                if (!intent.getBooleanExtra(Scheduler.EXTRA_SNOOZE, false)) Scheduler.resetSnooze(this, a.id)
+                if (intent.getBooleanExtra(Scheduler.EXTRA_SNOOZE, false)) Scheduler.snoozeFired(this, a.id)
+                else Scheduler.resetSnooze(this, a.id)
                 ring(a)
             }
             ACTION_SNOOZE -> {
-                current?.let { Scheduler.snooze(this, it) }
+                // 鳴っているアラーム。万一サービスが作り直されていても、画面から渡されたIDで確実にスヌーズする
+                val a = current ?: AlarmStore.get(this, intent.getIntExtra(Scheduler.EXTRA_ID, ringingId))
+                a?.let { Scheduler.snooze(this, it) }
                 finish()
             }
             ACTION_DISMISS -> {
-                current?.let { Scheduler.resetSnooze(this, it.id) }
+                val id = current?.id ?: intent.getIntExtra(Scheduler.EXTRA_ID, ringingId)
+                if (id >= 0) Scheduler.cancelSnooze(this, id)
                 finish()
             }
             else -> if (current == null) stopSelf()
@@ -133,9 +138,11 @@ class AlarmService : Service() {
         val fullPi = PendingIntent.getActivity(this, 1, ringIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val snoozePi = PendingIntent.getService(this, 2,
-            Intent(this, AlarmService::class.java).setAction(ACTION_SNOOZE), PendingIntent.FLAG_IMMUTABLE)
+            Intent(this, AlarmService::class.java).setAction(ACTION_SNOOZE).putExtra(Scheduler.EXTRA_ID, a.id),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val stopPi = PendingIntent.getService(this, 3,
-            Intent(this, AlarmService::class.java).setAction(ACTION_DISMISS), PendingIntent.FLAG_IMMUTABLE)
+            Intent(this, AlarmService::class.java).setAction(ACTION_DISMISS).putExtra(Scheduler.EXTRA_ID, a.id),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val notif = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_alarm)

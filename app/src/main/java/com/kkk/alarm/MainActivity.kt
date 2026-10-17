@@ -67,6 +67,17 @@ class MainActivity : AppCompatActivity() {
 
             time.text = a.timeText()
             days.text = if (a.label.isNotEmpty()) "${a.daysText()}  ·  ${a.label}" else a.daysText()
+            val until = Scheduler.snoozeUntil(this, a.id)
+            if (until > 0L) {
+                val t = java.text.SimpleDateFormat("H:mm", java.util.Locale.JAPAN).format(java.util.Date(until))
+                days.text = "😴 スヌーズ中 → $t にまた鳴ります（タップで取消）"
+                days.setTextColor(getColor(R.color.accent))
+                days.setOnClickListener {
+                    Scheduler.cancelSnooze(this, a.id)
+                    Toast.makeText(this, "スヌーズを取り消しました", Toast.LENGTH_SHORT).show()
+                    render()
+                }
+            }
 
             val on = a.enabled
             time.setTextColor(getColor(if (on) R.color.text else R.color.textOff))
@@ -81,6 +92,7 @@ class MainActivity : AppCompatActivity() {
                 a.enabled = !a.enabled
                 AlarmStore.save(this, a)
                 Scheduler.schedule(this, a)
+                if (!a.enabled) Scheduler.cancelSnooze(this, a.id)
                 if (a.enabled) toastUntil(this, a)
                 render()
             }

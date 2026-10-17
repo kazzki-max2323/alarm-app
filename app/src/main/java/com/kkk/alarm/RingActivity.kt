@@ -47,10 +47,10 @@ class RingActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.btnSnooze).setOnClickListener {
-            AlarmService.send(this, AlarmService.ACTION_SNOOZE); finish()
+            AlarmService.send(this, AlarmService.ACTION_SNOOZE, a?.id ?: AlarmService.ringingId); finish()
         }
         findViewById<Button>(R.id.btnStop).setOnClickListener {
-            AlarmService.send(this, AlarmService.ACTION_DISMISS); finish()
+            AlarmService.send(this, AlarmService.ACTION_DISMISS, a?.id ?: AlarmService.ringingId); finish()
         }
         // 戻るボタンで誤って消えないようにする
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

@@ -224,8 +224,10 @@ object Scheduler {
         }
     }
 
+    /** 決まった時刻の予約をし直す（スヌーズ中の予約は消さない） */
     fun schedule(ctx: Context, a: Alarm) {
-        cancel(ctx, a.id)
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        am.cancel(pending(ctx, a.id, false))
         if (a.enabled) setAt(ctx, a.nextTrigger(), pending(ctx, a.id, false))
     }
 
@@ -240,22 +242,47 @@ object Scheduler {
     fun snooze(ctx: Context, a: Alarm) {
         val min = nextSnoozeMin(ctx, a)
         val count = snoozePrefs(ctx).getInt("count_${a.id}", 0)
-        snoozePrefs(ctx).edit().putInt("count_${a.id}", count + 1).apply()
-        setAt(ctx, System.currentTimeMillis() + min * 60_000L, pending(ctx, a.id, true))
+        val at = System.currentTimeMillis() + min * 60_000L
+        snoozePrefs(ctx).edit().putInt("count_${a.id}", count + 1).putLong("until_${a.id}", at).commit()
+        setAt(ctx, at, pending(ctx, a.id, true))
+    }
+
+    /** スヌーズで次に鳴る時刻（スヌーズ中でなければ0） */
+    fun snoozeUntil(ctx: Context, id: Int): Long {
+        val t = snoozePrefs(ctx).getLong("until_$id", 0L)
+        return if (t > System.currentTimeMillis() - 60_000L) t else 0L
+    }
+
+    /** スヌーズの予約が鳴った */
+    fun snoozeFired(ctx: Context, id: Int) = snoozePrefs(ctx).edit().remove("until_$id").apply()
+
+    /** スヌーズをやめる（停止・削除・OFFのとき） */
+    fun cancelSnooze(ctx: Context, id: Int) {
+        ctx.getSystemService(AlarmManager::class.java).cancel(pending(ctx, id, true))
+        snoozePrefs(ctx).edit().remove("until_$id").remove("count_$id").apply()
     }
 
     fun snoozeCount(ctx: Context, id: Int) = snoozePrefs(ctx).getInt("count_$id", 0)
 
     fun resetSnooze(ctx: Context, id: Int) =
-        snoozePrefs(ctx).edit().remove("count_$id").apply()
+        snoozePrefs(ctx).edit().remove("count_$id").remove("until_$id").apply()
 
     fun cancel(ctx: Context, id: Int) {
-        val am = ctx.getSystemService(AlarmManager::class.java)
-        am.cancel(pending(ctx, id, false))
-        am.cancel(pending(ctx, id, true))
+        ctx.getSystemService(AlarmManager::class.java).cancel(pending(ctx, id, false))
+        cancelSnooze(ctx, id)
     }
 
-    fun rescheduleAll(ctx: Context) = AlarmStore.all(ctx).forEach { schedule(ctx, it) }
+    /** アプリ起動時・再起動時など。スヌーズ中のものは予約を張り直す */
+    fun rescheduleAll(ctx: Context) {
+        for (a in AlarmStore.all(ctx)) {
+            schedule(ctx, a)
+            val until = snoozePrefs(ctx).getLong("until_${a.id}", 0L)
+            if (until > 0L) {
+                val at = maxOf(until, System.currentTimeMillis() + 5_000L)
+                setAt(ctx, at, pending(ctx, a.id, true))
+            }
+        }
+    }
 
     fun canExact(ctx: Context): Boolean =
         Build.VERSION.SDK_INT < 31 || ctx.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
