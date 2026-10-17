@@ -11,6 +11,54 @@ import java.util.Calendar
 
 data class Sound(val uri: String, val name: String)
 
+/** 名前付きの曲リスト */
+data class Playlist(val id: Int, var name: String, var sounds: MutableList<Sound> = mutableListOf()) {
+    fun toJson() = JSONObject().apply {
+        put("id", id); put("name", name)
+        put("sounds", JSONArray().apply { sounds.forEach { put(JSONObject().put("uri", it.uri).put("name", it.name)) } })
+    }
+    companion object {
+        fun fromJson(o: JSONObject): Playlist {
+            val list = mutableListOf<Sound>()
+            o.optJSONArray("sounds")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val s = arr.getJSONObject(i)
+                    list.add(Sound(s.getString("uri"), s.optString("name", "曲")))
+                }
+            }
+            return Playlist(o.getInt("id"), o.optString("name", "リスト"), list)
+        }
+    }
+}
+
+object PlaylistStore {
+    private const val PREF = "playlists"
+    private const val KEY = "list"
+
+    fun all(ctx: Context): MutableList<Playlist> {
+        val arr = JSONArray(ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]")
+        return (0 until arr.length()).map { Playlist.fromJson(arr.getJSONObject(it)) }.toMutableList()
+    }
+
+    fun get(ctx: Context, id: Int) = if (id <= 0) null else all(ctx).firstOrNull { it.id == id }
+
+    private fun saveAll(ctx: Context, list: List<Playlist>) {
+        val arr = JSONArray(); list.forEach { arr.put(it.toJson()) }
+        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putString(KEY, arr.toString()).apply()
+    }
+
+    fun save(ctx: Context, p: Playlist) {
+        val list = all(ctx)
+        val i = list.indexOfFirst { it.id == p.id }
+        if (i >= 0) list[i] = p else list.add(p)
+        saveAll(ctx, list)
+    }
+
+    fun delete(ctx: Context, id: Int) = saveAll(ctx, all(ctx).filter { it.id != id })
+
+    fun newId(ctx: Context) = (all(ctx).maxOfOrNull { it.id } ?: 0) + 1
+}
+
 /** days: ビット0=日 … ビット6=土。0なら1回だけ */
 data class Alarm(
     val id: Int,
@@ -19,10 +67,16 @@ data class Alarm(
     var days: Int = 0b1111111,
     var enabled: Boolean = true,
     var label: String = "",
+    /** 旧バージョンの曲（プレイリストに移行される） */
     var sounds: MutableList<Sound> = mutableListOf(),
+    /** 使うプレイリスト。0なら標準のアラーム音 */
+    var playlistId: Int = 0,
     var snoozeMin: Int = 5,
     var rampSec: Int = 60,
 ) {
+    /** 鳴らす曲 */
+    fun songs(ctx: Context): List<Sound> = PlaylistStore.get(ctx, playlistId)?.sounds ?: sounds
+
     fun timeText() = String.format("%02d:%02d", hour, minute)
 
     fun daysText(): String {
@@ -62,6 +116,7 @@ data class Alarm(
         put("enabled", enabled); put("label", label); put("sounds", JSONArray().apply {
             sounds.forEach { put(JSONObject().put("uri", it.uri).put("name", it.name)) }
         })
+        put("playlistId", playlistId)
         put("snoozeMin", snoozeMin); put("rampSec", rampSec)
     }
 
@@ -88,6 +143,7 @@ data class Alarm(
             enabled = o.optBoolean("enabled", true),
             label = o.optString("label", ""),
             sounds = readSounds(o),
+            playlistId = o.optInt("playlistId", 0),
             snoozeMin = o.optInt("snoozeMin", 5),
             rampSec = o.optInt("rampSec", 60),
         )
@@ -102,11 +158,30 @@ object AlarmStore {
         val s = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]"
         val arr = JSONArray(s)
         val list = (0 until arr.length()).map { Alarm.fromJson(arr.getJSONObject(it)) }.toMutableList()
+        if (migrate(ctx, list)) saveAll(ctx, list)
         list.sortWith(compareBy({ it.hour }, { it.minute }))
         return list
     }
 
     fun get(ctx: Context, id: Int) = all(ctx).firstOrNull { it.id == id }
+
+    /** 旧バージョンで直接選んだ曲を、名前付きリストに移す */
+    private fun migrate(ctx: Context, list: List<Alarm>): Boolean {
+        var changed = false
+        for (a in list) {
+            if (a.playlistId == 0 && a.sounds.isNotEmpty()) {
+                val key = a.sounds.map { it.uri }.toSet()
+                val existing = PlaylistStore.all(ctx).firstOrNull { p -> p.sounds.map { it.uri }.toSet() == key }
+                val p = existing ?: Playlist(PlaylistStore.newId(ctx), "マイリスト" +
+                        (PlaylistStore.all(ctx).size + 1).let { if (it == 1) "" else " $it" }, a.sounds.toMutableList())
+                    .also { PlaylistStore.save(ctx, it) }
+                a.playlistId = p.id
+                a.sounds = mutableListOf()
+                changed = true
+            }
+        }
+        return changed
+    }
 
     private fun saveAll(ctx: Context, list: List<Alarm>) {
         val arr = JSONArray()
@@ -128,11 +203,12 @@ object AlarmStore {
 
 object Scheduler {
     const val EXTRA_ID = "alarm_id"
+    const val EXTRA_SNOOZE = "is_snooze"
     private const val SNOOZE_OFFSET = 100000
 
     private fun pending(ctx: Context, id: Int, snooze: Boolean): PendingIntent {
         val code = if (snooze) id + SNOOZE_OFFSET else id
-        val i = Intent(ctx, AlarmReceiver::class.java).putExtra(EXTRA_ID, id)
+        val i = Intent(ctx, AlarmReceiver::class.java).putExtra(EXTRA_ID, id).putExtra(EXTRA_SNOOZE, snooze)
         return PendingIntent.getBroadcast(ctx, code, i,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
@@ -153,9 +229,23 @@ object Scheduler {
         if (a.enabled) setAt(ctx, a.nextTrigger(), pending(ctx, a.id, false))
     }
 
-    fun snooze(ctx: Context, a: Alarm) {
-        setAt(ctx, System.currentTimeMillis() + a.snoozeMin * 60_000L, pending(ctx, a.id, true))
+    private fun snoozePrefs(ctx: Context) = ctx.getSharedPreferences("snooze", Context.MODE_PRIVATE)
+
+    /** 次のスヌーズ間隔：最初の間隔から1回ごとに1分ずつ短く、1分になったらずっと1分 */
+    fun nextSnoozeMin(ctx: Context, a: Alarm): Int {
+        val count = snoozePrefs(ctx).getInt("count_${a.id}", 0)
+        return (a.snoozeMin - count).coerceAtLeast(1)
     }
+
+    fun snooze(ctx: Context, a: Alarm) {
+        val min = nextSnoozeMin(ctx, a)
+        val count = snoozePrefs(ctx).getInt("count_${a.id}", 0)
+        snoozePrefs(ctx).edit().putInt("count_${a.id}", count + 1).apply()
+        setAt(ctx, System.currentTimeMillis() + min * 60_000L, pending(ctx, a.id, true))
+    }
+
+    fun resetSnooze(ctx: Context, id: Int) =
+        snoozePrefs(ctx).edit().remove("count_$id").apply()
 
     fun cancel(ctx: Context, id: Int) {
         val am = ctx.getSystemService(AlarmManager::class.java)

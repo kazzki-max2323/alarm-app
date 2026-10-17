@@ -26,7 +26,8 @@ class AlarmReceiver : android.content.BroadcastReceiver() {
         if (id < 0) return
         ContextCompat.startForegroundService(ctx,
             Intent(ctx, AlarmService::class.java).setAction(AlarmService.ACTION_RING)
-                .putExtra(Scheduler.EXTRA_ID, id))
+                .putExtra(Scheduler.EXTRA_ID, id)
+                .putExtra(Scheduler.EXTRA_SNOOZE, intent.getBooleanExtra(Scheduler.EXTRA_SNOOZE, false)))
     }
 }
 
@@ -77,13 +78,18 @@ class AlarmService : Service() {
             ACTION_RING -> {
                 val a = AlarmStore.get(this, intent.getIntExtra(Scheduler.EXTRA_ID, -1))
                 if (a == null) { stopSelf(); return START_NOT_STICKY }
+                // 決まった時刻に鳴った（スヌーズではない）ならスヌーズ間隔を最初に戻す
+                if (!intent.getBooleanExtra(Scheduler.EXTRA_SNOOZE, false)) Scheduler.resetSnooze(this, a.id)
                 ring(a)
             }
             ACTION_SNOOZE -> {
                 current?.let { Scheduler.snooze(this, it) }
                 finish()
             }
-            ACTION_DISMISS -> finish()
+            ACTION_DISMISS -> {
+                current?.let { Scheduler.resetSnooze(this, it.id) }
+                finish()
+            }
             else -> if (current == null) stopSelf()
         }
         return START_NOT_STICKY
@@ -123,7 +129,7 @@ class AlarmService : Service() {
             .setFullScreenIntent(fullPi, true)
             .setContentIntent(fullPi)
             .setOngoing(true)
-            .addAction(0, "スヌーズ", snoozePi)
+            .addAction(0, "スヌーズ ${Scheduler.nextSnoozeMin(this, a)}分", snoozePi)
             .addAction(0, "停止", stopPi)
             .build()
 
@@ -163,7 +169,8 @@ class AlarmService : Service() {
         player?.let { try { it.release() } catch (_: Exception) { } }
         player = null
 
-        val songs = a.sounds.shuffled().toMutableList()
+        val all = a.songs(this)
+        val songs = all.shuffled().toMutableList()
         if (songs.size > 1 && songs.first().uri == lastUri) songs.add(songs.removeAt(0))
         val candidates = songs.map { Uri.parse(it.uri) }.toMutableList()
         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.let { candidates.add(it) }
@@ -175,7 +182,7 @@ class AlarmService : Service() {
                 mp.setAudioAttributes(attrs)
                 mp.setDataSource(this, u)
                 // 1曲だけ・標準音ならループ、複数曲なら終わったら次へ
-                val multi = a.sounds.size > 1 && a.sounds.any { it.uri == u.toString() }
+                val multi = all.size > 1 && all.any { it.uri == u.toString() }
                 mp.isLooping = !multi
                 if (multi) mp.setOnCompletionListener { if (current != null) playNext(a) }
                 mp.setVolume(currentVolume, currentVolume)

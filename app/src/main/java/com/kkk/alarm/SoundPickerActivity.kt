@@ -32,6 +32,7 @@ class SoundPickerActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_URIS = "uris"
         const val EXTRA_NAMES = "names"
+        const val EXTRA_LIST_NAME = "list_name"
 
         fun readResult(data: Intent?): MutableList<Sound> {
             val uris = data?.getStringArrayExtra(EXTRA_URIS) ?: return mutableListOf()
@@ -39,8 +40,11 @@ class SoundPickerActivity : AppCompatActivity() {
             return uris.mapIndexed { i, u -> Sound(u, names.getOrElse(i) { "曲" }) }.toMutableList()
         }
 
-        fun intentFor(act: Activity, current: List<Sound>) =
+        fun listName(data: Intent?) = data?.getStringExtra(EXTRA_LIST_NAME) ?: "リスト"
+
+        fun intentFor(act: Activity, current: List<Sound>, listName: String) =
             Intent(act, SoundPickerActivity::class.java)
+                .putExtra(EXTRA_LIST_NAME, listName)
                 .putExtra(EXTRA_URIS, current.map { it.uri }.toTypedArray())
                 .putExtra(EXTRA_NAMES, current.map { it.name }.toTypedArray())
     }
@@ -54,6 +58,7 @@ class SoundPickerActivity : AppCompatActivity() {
     private var playingUri: String? = null
     private var player: MediaPlayer? = null
 
+    private lateinit var nameEdit: EditText
     private lateinit var listView: ListView
     private lateinit var countText: TextView
     private lateinit var emptyText: TextView
@@ -86,6 +91,8 @@ class SoundPickerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_sound_picker)
 
         SoundPickerActivity.readResult(intent).forEach { selected[it.uri] = it.name }
+        nameEdit = findViewById(R.id.pickName)
+        nameEdit.setText(intent.getStringExtra(EXTRA_LIST_NAME) ?: "")
 
         listView = findViewById(R.id.songList)
         countText = findViewById(R.id.pickCount)
@@ -167,8 +174,14 @@ class SoundPickerActivity : AppCompatActivity() {
     }
 
     private fun done() {
+        if (selected.isEmpty()) {
+            Toast.makeText(this, "曲を1曲以上選んでください", Toast.LENGTH_SHORT).show()
+            return
+        }
         stopPreview()
+        val name = nameEdit.text.toString().trim().ifEmpty { "マイリスト" }
         setResult(RESULT_OK, Intent()
+            .putExtra(EXTRA_LIST_NAME, name)
             .putExtra(EXTRA_URIS, selected.keys.toTypedArray())
             .putExtra(EXTRA_NAMES, selected.values.toTypedArray()))
         finish()

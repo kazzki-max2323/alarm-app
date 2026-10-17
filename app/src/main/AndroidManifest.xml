@@ -37,6 +37,10 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".PlaylistActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".SoundPickerActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

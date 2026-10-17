@@ -30,7 +30,8 @@ class RingActivity : AppCompatActivity() {
 
         val a = AlarmStore.get(this, intent.getIntExtra(Scheduler.EXTRA_ID, -1))
         findViewById<TextView>(R.id.ringLabel).text = a?.label?.ifEmpty { "おはよう" } ?: "おはよう"
-        findViewById<Button>(R.id.btnSnooze).text = "スヌーズ  ${a?.snoozeMin ?: 5}分"
+        findViewById<Button>(R.id.btnSnooze).text =
+            "スヌーズ  ${a?.let { Scheduler.nextSnoozeMin(this, it) } ?: 5}分"
 
         findViewById<Button>(R.id.btnSnooze).setOnClickListener {
             AlarmService.send(this, AlarmService.ACTION_SNOOZE); finish()
