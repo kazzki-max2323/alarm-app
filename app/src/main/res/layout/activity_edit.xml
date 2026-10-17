@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/bg" android:orientation="vertical">
+
+    <!-- 上部バー -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="64dp"
+        android:gravity="center_vertical" android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+        <ImageButton android:id="@+id/btnClose"
+            android:layout_width="56dp" android:layout_height="56dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close" android:contentDescription="閉じる" />
+        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+        <TextView android:id="@+id/btnPreview"
+            android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:gravity="center" android:paddingHorizontal="14dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:text="プレビュー" android:textColor="@color/text"
+            android:textSize="17sp" android:textStyle="bold" />
+        <TextView android:id="@+id/btnSave"
+            android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:gravity="center" android:paddingHorizontal="16dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:text="保存" android:textColor="@color/accent"
+            android:textSize="17sp" android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:paddingBottom="32dp">
+
+            <EditText android:id="@+id/editLabel"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginHorizontal="24dp"
+                android:hint="アラーム名" android:textColorHint="@color/textOff"
+                android:textColor="@color/text" android:textSize="24sp" android:textStyle="bold"
+                android:inputType="text" android:maxLines="1" android:imeOptions="actionDone"
+                android:backgroundTint="@color/divider" android:paddingVertical="14dp" />
+
+            <!-- 時刻ホイール -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:gravity="center"
+                android:orientation="horizontal">
+                <NumberPicker android:id="@+id/pickHour"
+                    android:layout_width="96dp" android:layout_height="220dp"
+                    android:theme="@style/Picker" android:descendantFocusability="blocksDescendants" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="20dp"
+                    android:text=":" android:textColor="@color/text"
+                    android:textSize="44sp" android:textStyle="bold" />
+                <NumberPicker android:id="@+id/pickMinute"
+                    android:layout_width="96dp" android:layout_height="220dp"
+                    android:theme="@style/Picker" android:descendantFocusability="blocksDescendants" />
+            </LinearLayout>
+
+            <TextView android:id="@+id/daysSummary"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:gravity="center"
+                android:textColor="@color/textOff2" android:textSize="16sp" />
+
+            <!-- 曜日 -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:layout_marginHorizontal="16dp"
+                android:orientation="horizontal">
+                <TextView android:id="@+id/d0" style="@style/Day" android:text="日" />
+                <TextView android:id="@+id/d1" style="@style/Day" android:text="月" />
+                <TextView android:id="@+id/d2" style="@style/Day" android:text="火" />
+                <TextView android:id="@+id/d3" style="@style/Day" android:text="水" />
+                <TextView android:id="@+id/d4" style="@style/Day" android:text="木" />
+                <TextView android:id="@+id/d5" style="@style/Day" android:text="金" />
+                <TextView android:id="@+id/d6" style="@style/Day" android:text="土" />
+            </LinearLayout>
+
+            <!-- 音 -->
+            <LinearLayout android:id="@+id/cardSound"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp" android:layout_marginTop="28dp"
+                android:background="@drawable/card_bg" android:orientation="horizontal"
+                android:gravity="center_vertical" android:padding="20dp"
+                android:foreground="?android:attr/selectableItemBackground">
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="wrap_content" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="音" android:textColor="@color/text"
+                        android:textSize="20sp" android:textStyle="bold" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:text="音楽"
+                        android:textColor="@color/accent" android:textSize="16sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/soundName"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp" android:textColor="@color/accent"
+                        android:textSize="15sp" android:maxLines="2" android:ellipsize="end" />
+                </LinearLayout>
+                <ImageView android:layout_width="56dp" android:layout_height="56dp"
+                    android:src="@drawable/ic_note" app:tint="#E2574C"
+                    xmlns:app="http://schemas.android.com/apk/res-auto" />
+            </LinearLayout>
+
+            <!-- スヌーズ / 音量アップ -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp" android:layout_marginTop="16dp"
+                android:orientation="horizontal">
+                <LinearLayout android:id="@+id/cardSnooze" style="@style/SmallCard"
+                    android:layout_marginEnd="8dp">
+                    <TextView style="@style/CardTitle" android:text="スヌーズ" />
+                    <ImageView style="@style/CardIcon" android:src="@drawable/ic_snooze" />
+                    <TextView android:id="@+id/snoozeValue" style="@style/CardValue" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/cardRamp" style="@style/SmallCard"
+                    android:layout_marginStart="8dp">
+                    <TextView style="@style/CardTitle" android:text="音量アップ" />
+                    <ImageView style="@style/CardIcon" android:src="@drawable/ic_volume" />
+                    <TextView android:id="@+id/rampValue" style="@style/CardValue" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

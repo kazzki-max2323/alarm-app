@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/bg" android:orientation="vertical"
+    android:gravity="center_horizontal" android:padding="32dp">
+
+    <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+
+    <TextView android:id="@+id/ringTime"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textColor="@color/text" android:textSize="88sp" android:textStyle="bold" />
+    <TextView android:id="@+id/ringLabel"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/textOff2" android:textSize="20sp" />
+
+    <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1.4" />
+
+    <Button android:id="@+id/btnSnooze"
+        android:layout_width="match_parent" android:layout_height="96dp"
+        android:background="@drawable/btn_primary" android:textColor="@color/bg"
+        android:textSize="24sp" android:textStyle="bold"
+        android:stateListAnimator="@null" />
+
+    <Button android:id="@+id/btnStop"
+        android:layout_width="match_parent" android:layout_height="64dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/btn_outline" android:text="停止"
+        android:textColor="@color/text" android:textSize="20sp"
+        android:stateListAnimator="@null" />
+
+    <View android:layout_width="0dp" android:layout_height="24dp" />
+</LinearLayout>
