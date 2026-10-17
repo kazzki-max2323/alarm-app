@@ -13,6 +13,11 @@ import java.util.Date
 import java.util.Locale
 
 class RingActivity : AppCompatActivity() {
+    companion object {
+        const val EXTRA_QUIP = "quip"
+        const val EXTRA_QUIP_LABEL = "quip_label"
+    }
+
     private val clock = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +38,14 @@ class RingActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSnooze).text =
             "スヌーズ  ${a?.let { Scheduler.nextSnoozeMin(this, it) } ?: 5}分"
 
+        showQuip(intent.getStringExtra(EXTRA_QUIP_LABEL) ?: "", intent.getStringExtra(EXTRA_QUIP) ?: "")
+        // タップで次のつぶやき
+        findViewById<android.view.View>(R.id.quipCard).setOnClickListener {
+            val q = Quips.pick(this, a?.let { Scheduler.snoozeCount(this, it.id) } ?: 0,
+                a?.let { Scheduler.nextSnoozeMin(this, it) } ?: 5)
+            showQuip(q.label, q.text)
+        }
+
         findViewById<Button>(R.id.btnSnooze).setOnClickListener {
             AlarmService.send(this, AlarmService.ACTION_SNOOZE); finish()
         }
@@ -44,6 +57,19 @@ class RingActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {}
         })
         AlarmService.onFinished = { runOnUiThread { finish() } }
+    }
+
+    private fun showQuip(label: String, text: String) {
+        val body: String
+        val author: String
+        val i = text.lastIndexOf(" — ")
+        if (i > 0) { body = text.substring(0, i); author = "— " + text.substring(i + 3) } else { body = text; author = "" }
+        findViewById<TextView>(R.id.quipLabel).text = label
+        findViewById<TextView>(R.id.quipText).text = body.ifEmpty { "おはよう！" }
+        findViewById<TextView>(R.id.quipBy).apply {
+            this.text = author
+            visibility = if (author.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+        }
     }
 
     private val tick = object : Runnable {

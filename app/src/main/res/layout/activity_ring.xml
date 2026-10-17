@@ -14,7 +14,29 @@
         android:layout_marginTop="8dp"
         android:textColor="@color/textOff2" android:textSize="20sp" />
 
-    <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1.4" />
+    <LinearLayout android:id="@+id/quipCard"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
+        android:background="@drawable/card_bg" android:foreground="?android:attr/selectableItemBackground"
+        android:orientation="vertical" android:padding="22dp">
+        <TextView android:id="@+id/quipLabel"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="@color/accent" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/quipText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="10dp" android:lineSpacingMultiplier="1.25"
+            android:textColor="@color/text" android:textSize="19sp" android:textStyle="bold" />
+        <TextView android:id="@+id/quipBy"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:gravity="end"
+            android:textColor="@color/textOff2" android:textSize="14sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:gravity="end"
+            android:text="タップで次のつぶやき ›"
+            android:textColor="@color/textOff" android:textSize="12sp" />
+    </LinearLayout>
+
+    <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
 
     <Button android:id="@+id/btnSnooze"
         android:layout_width="match_parent" android:layout_height="96dp"

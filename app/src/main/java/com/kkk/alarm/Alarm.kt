@@ -244,6 +244,8 @@ object Scheduler {
         setAt(ctx, System.currentTimeMillis() + min * 60_000L, pending(ctx, a.id, true))
     }
 
+    fun snoozeCount(ctx: Context, id: Int) = snoozePrefs(ctx).getInt("count_$id", 0)
+
     fun resetSnooze(ctx: Context, id: Int) =
         snoozePrefs(ctx).edit().remove("count_$id").apply()
 

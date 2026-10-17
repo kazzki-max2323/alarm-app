@@ -109,8 +109,11 @@ class AlarmService : Service() {
         }
 
         ensureChannel(this)
+        val quip = Quips.pick(this, Scheduler.snoozeCount(this, a.id), Scheduler.nextSnoozeMin(this, a))
         val ringIntent = Intent(this, RingActivity::class.java)
             .putExtra(Scheduler.EXTRA_ID, a.id)
+            .putExtra(RingActivity.EXTRA_QUIP, quip.text)
+            .putExtra(RingActivity.EXTRA_QUIP_LABEL, quip.label)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
         val fullPi = PendingIntent.getActivity(this, 1, ringIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -122,7 +125,8 @@ class AlarmService : Service() {
         val notif = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_alarm)
             .setContentTitle(a.timeText() + if (a.label.isNotEmpty()) "  " + a.label else "")
-            .setContentText("アラームが鳴っています")
+            .setContentText(quip.text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(quip.text))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
