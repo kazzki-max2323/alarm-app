@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        AlarmService.restoreVolumeIfNeeded(this)
         render()
         updateBanner()
     }

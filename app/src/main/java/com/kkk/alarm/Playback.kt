@@ -13,6 +13,8 @@ import org.videolan.libvlc.Media
 
 /** 再生中の1曲。音量は 0.0〜1.0 */
 interface Track {
+    /** この曲が鳴っている音量の種類（アラーム音量 or メディア音量） */
+    val stream: Int
     fun setVolume(v: Float)
     fun release()
 }
@@ -55,6 +57,8 @@ object Playback {
             mp.prepare()
             mp.start()
             object : Track {
+                override val stream =
+                    if (attrs.usage == AudioAttributes.USAGE_ALARM) AudioManager.STREAM_ALARM else AudioManager.STREAM_MUSIC
                 override fun setVolume(v: Float) { try { mp.setVolume(v, v) } catch (_: Exception) { } }
                 override fun release() {
                     try { mp.stop() } catch (_: Exception) { }
@@ -102,11 +106,7 @@ object Playback {
             var changed = false
             if (matchAlarmVolume) {
                 try {
-                    val ratio = am.getStreamVolume(AudioManager.STREAM_ALARM).toFloat() /
-                            am.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1)
-                    val target = Math.round(ratio * am.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
-                        .coerceAtLeast(if (ratio > 0f) 1 else 0)
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0)
                     changed = true
                 } catch (_: Exception) { }
             }
@@ -115,6 +115,7 @@ object Playback {
             val fd = pfd!!
             val lib = vlc!!
             object : Track {
+                override val stream = AudioManager.STREAM_MUSIC
                 override fun setVolume(v: Float) {
                     try { p.volume = (v * 100).toInt().coerceIn(0, 100) } catch (_: Exception) { }
                 }

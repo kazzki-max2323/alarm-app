@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
@@ -47,6 +48,20 @@ class AlarmService : Service() {
         /** 鳴動画面を閉じるためのコールバック */
         var onFinished: (() -> Unit)? = null
         var ringingId: Int = -1
+
+        /** 鳴動中に強制終了した等で音量が下がったままなら戻す */
+        fun restoreVolumeIfNeeded(ctx: Context) {
+            if (ringingId >= 0) return
+            val prefs = ctx.getSharedPreferences("vol", Context.MODE_PRIVATE)
+            val target = prefs.getInt("alarm_target", -1)
+            if (target > 0) {
+                try {
+                    ctx.getSystemService(android.media.AudioManager::class.java)
+                        .setStreamVolume(android.media.AudioManager.STREAM_ALARM, target, 0)
+                } catch (_: Exception) { }
+                prefs.edit().remove("alarm_target").apply()
+            }
+        }
 
         fun send(ctx: Context, action: String) {
             ctx.startService(Intent(ctx, AlarmService::class.java).setAction(action))
@@ -153,7 +168,11 @@ class AlarmService : Service() {
     }
 
     private var lastUri: String? = null
-    private var currentVolume = 0.03f
+    private var audio: AudioManager? = null
+    /** ユーザーが設定していたアラーム音量（目盛り）。最後にここへ戻す */
+    private var alarmTarget = -1
+    private var appliedIndex = -1
+    private var appliedStream = -1
 
     private val attrs = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -162,10 +181,66 @@ class AlarmService : Service() {
 
     private fun startPlayback(a: Alarm) {
         lastUri = getSharedPreferences("play", MODE_PRIVATE).getString("last", null)
-        currentVolume = 0.03f
-        playNext(a)
+        val am = getSystemService(AudioManager::class.java)
+        audio = am
+        val prefs = getSharedPreferences("vol", MODE_PRIVATE)
+        // 前回うまく戻せなかった場合は、保存しておいた本来の音量を使う
+        alarmTarget = prefs.getInt("alarm_target", -1).takeIf { it > 0 }
+            ?: am.getStreamVolume(AudioManager.STREAM_ALARM)
+        prefs.edit().putInt("alarm_target", alarmTarget).apply()
+        appliedIndex = -1; appliedStream = -1
         rampStart = System.currentTimeMillis()
+        playNext(a)
         handler.post(rampTick)
+    }
+
+    /**
+     * 今の音量を反映する。
+     * 前半はスマホの音量を一番小さい目盛りに固定して、曲の音量をほぼ無音からじわじわ上げる。
+     * 後半はスマホの音量の目盛りを、設定していた大きさまで少しずつ上げる。
+     */
+    private fun applyVolume(a: Alarm) {
+        val t0 = player ?: return
+        val am = audio ?: return
+        val total = a.rampSec * 1000f
+        val t = if (total <= 0f) 1f else ((System.currentTimeMillis() - rampStart) / total).coerceIn(0f, 1f)
+
+        val stream = t0.stream
+        val maxIdx = am.getStreamMaxVolume(stream).coerceAtLeast(1)
+        val alarmMax = am.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1)
+        val minIdx = 1
+        val target = if (stream == AudioManager.STREAM_ALARM) alarmTarget
+            else Math.round(alarmTarget.toFloat() / alarmMax * maxIdx).coerceAtLeast(minIdx)
+
+        val phase1 = 0.2f   // 最初の2割の時間は、最小の目盛りで曲の音量を上げる
+        val gain: Float
+        val idx: Int
+        if (t < phase1 && target > minIdx) {
+            val x = t / phase1
+            gain = 0.02f + 0.98f * x * x
+            idx = minIdx
+        } else if (target <= minIdx) {
+            gain = 0.02f + 0.98f * t * t
+            idx = minIdx
+        } else {
+            val x = (t - phase1) / (1f - phase1)
+            gain = 1f
+            idx = (minIdx + Math.ceil((target - minIdx) * x.toDouble()).toInt()).coerceIn(minIdx, target)
+        }
+        if (idx != appliedIndex || stream != appliedStream) {
+            try { am.setStreamVolume(stream, idx, 0) } catch (_: Exception) { }
+            appliedIndex = idx; appliedStream = stream
+        }
+        t0.setVolume(gain)
+    }
+
+    private fun restoreAlarmVolume() {
+        val am = audio ?: getSystemService(AudioManager::class.java)
+        if (alarmTarget > 0) {
+            try { am.setStreamVolume(AudioManager.STREAM_ALARM, alarmTarget, 0) } catch (_: Exception) { }
+        }
+        alarmTarget = -1
+        getSharedPreferences("vol", MODE_PRIVATE).edit().remove("alarm_target").apply()
     }
 
     /** 選んだ曲からランダムに1曲（直前と同じ曲は避ける）。曲が終わったら次の曲へ */
@@ -183,10 +258,12 @@ class AlarmService : Service() {
         for (u in candidates) {
             // 1曲だけ・標準音ならループ、複数曲なら終わったら次へ
             val multi = all.size > 1 && all.any { it.uri == u.toString() }
-            val t = Playback.open(this, u, attrs, loop = !multi, startVolume = currentVolume,
+            val t = Playback.open(this, u, attrs, loop = !multi, startVolume = 0f,
                 onComplete = if (multi) ({ if (current != null) playNext(a) }) else null)
             if (t != null) {
                 player = t
+                appliedIndex = -1
+                applyVolume(a)
                 lastUri = u.toString()
                 getSharedPreferences("play", MODE_PRIVATE).edit().putString("last", lastUri).apply()
                 break
@@ -198,13 +275,10 @@ class AlarmService : Service() {
     private val rampTick = object : Runnable {
         override fun run() {
             val a = current ?: return
-            val mp = player ?: run { handler.postDelayed(this, 200); return }
-            val total = a.rampSec * 1000f
-            val t = if (total <= 0f) 1f else ((System.currentTimeMillis() - rampStart) / total).coerceIn(0f, 1f)
-            val v = 0.03f + 0.97f * t * t   // 耳の感覚に合わせてカーブ
-            currentVolume = v
-            mp.setVolume(v)
-            if (t < 1f) handler.postDelayed(this, 200)
+            if (player == null) { handler.postDelayed(this, 200); return }
+            applyVolume(a)
+            val done = a.rampSec <= 0 || System.currentTimeMillis() - rampStart >= a.rampSec * 1000L
+            if (!done) handler.postDelayed(this, 200)
         }
     }
 
@@ -212,6 +286,7 @@ class AlarmService : Service() {
         handler.removeCallbacksAndMessages(null)
         player?.release()
         player = null
+        restoreAlarmVolume()
     }
 
     private fun finish() {
