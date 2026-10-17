@@ -25,7 +25,7 @@ class RingActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            getSystemService(KeyguardManager::class.java)?.requestDismissKeyguard(this, null)
+            // ロック解除は求めない（ロックしたままこの画面を表示する）
         }
         @Suppress("DEPRECATION")
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
