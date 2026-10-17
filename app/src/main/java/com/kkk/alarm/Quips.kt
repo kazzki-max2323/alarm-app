@@ -4,7 +4,7 @@ import android.content.Context
 import java.util.Calendar
 
 /**
- * 鳴動画面に出す「つぶやき」。assets/lines/*.txt から読み込む。
+ * 鳴動画面に出す「つぶやき」。assets/lines フォルダの txt から読み込む。
  *  - ファイル1行目 "# 絵文字 ジャンル名"
  *  - "@0"〜"@6" で始まる行は曜日限定（0=日）
  *  - "%1,2,12" で始まる行はその月限定
