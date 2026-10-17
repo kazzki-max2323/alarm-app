@@ -24,7 +24,20 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build
-        run: gradle assembleRelease --no-daemon
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon 2>&1 | tee build.log
+
+      - name: Publish build log on failure
+        if: failure()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: log-${{ github.run_number }}
+          name: build log ${{ github.run_number }}
+          files: build.log
+          prerelease: true
+          make_latest: false
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk alarm.apk
