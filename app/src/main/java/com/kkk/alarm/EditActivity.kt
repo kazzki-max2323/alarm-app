@@ -22,7 +22,7 @@ class EditActivity : AppCompatActivity() {
     private lateinit var alarm: Alarm
     private var isNew = false
     private val dayViews = mutableListOf<TextView>()
-    private var preview: MediaPlayer? = null
+    private var preview: Track? = null
     private val handler = Handler(Looper.getMainLooper())
 
     private val snoozeOptions = intArrayOf(1, 3, 5, 7, 10, 15)
@@ -171,36 +171,30 @@ class EditActivity : AppCompatActivity() {
         // 選んだ曲からランダムに1曲（鳴るときと同じ）
         val uri = alarm.songs(this).randomOrNull()?.let { Uri.parse(it.uri) }
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        try {
-            val mp = MediaPlayer()
-            mp.setAudioAttributes(AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-            mp.setDataSource(this, uri)
-            mp.isLooping = true
-            mp.setVolume(0.03f, 0.03f)
-            mp.prepare()
-            mp.start()
-            preview = mp
-            findViewById<TextView>(R.id.btnPreview).text = "停止"
-            val start = System.currentTimeMillis()
-            handler.post(object : Runnable {
-                override fun run() {
-                    val p = preview ?: return
-                    val t = ((System.currentTimeMillis() - start) / 5000f).coerceIn(0f, 1f)
-                    val v = 0.03f + 0.97f * t * t
-                    p.setVolume(v, v)
-                    if (t < 1f) handler.postDelayed(this, 150)
-                }
-            })
-        } catch (e: Exception) {
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+        val t = Playback.open(this, uri, attrs, loop = true, startVolume = 0.03f)
+        if (t == null) {
             Toast.makeText(this, "この曲を再生できませんでした", Toast.LENGTH_SHORT).show()
+            return
         }
+        preview = t
+        findViewById<TextView>(R.id.btnPreview).text = "停止"
+        val start = System.currentTimeMillis()
+        handler.post(object : Runnable {
+            override fun run() {
+                val p = preview ?: return
+                val x = ((System.currentTimeMillis() - start) / 5000f).coerceIn(0f, 1f)
+                p.setVolume(0.03f + 0.97f * x * x)
+                if (x < 1f) handler.postDelayed(this, 150)
+            }
+        })
     }
 
     private fun stopPreview() {
         handler.removeCallbacksAndMessages(null)
-        preview?.let { try { it.stop() } catch (_: Exception) { }; it.release() }
+        preview?.release()
         preview = null
         findViewById<TextView>(R.id.btnPreview).text = "プレビュー"
     }

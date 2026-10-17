@@ -56,7 +56,7 @@ class SoundPickerActivity : AppCompatActivity() {
     /** 選択中（選んだ順を保持） */
     private val selected = LinkedHashMap<String, String>()
     private var playingUri: String? = null
-    private var player: MediaPlayer? = null
+    private var player: Track? = null
 
     private lateinit var nameEdit: EditText
     private lateinit var listView: ListView
@@ -129,7 +129,8 @@ class SoundPickerActivity : AppCompatActivity() {
         try {
             contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, proj,
-                "${MediaStore.Audio.Media.DURATION} >= 5000", null,
+                "${MediaStore.Audio.Media.DURATION} >= 5000 OR ${MediaStore.Audio.Media.MIME_TYPE} LIKE '%wma%' " +
+                        "OR ${MediaStore.Audio.Media.DISPLAY_NAME} LIKE '%.wma'", null,
                 "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
             )?.use { c ->
                 while (c.moveToNext()) {
@@ -191,26 +192,22 @@ class SoundPickerActivity : AppCompatActivity() {
     private fun togglePreview(s: Song) {
         if (playingUri == s.uri) { stopPreview(); return }
         stopPreview()
-        val mp = MediaPlayer()
-        try {
-            mp.setAudioAttributes(AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-            mp.setDataSource(this, Uri.parse(s.uri))
-            mp.setOnCompletionListener { stopPreview() }
-            mp.prepare()
-            mp.start()
-            player = mp
-            playingUri = s.uri
-        } catch (_: Exception) {
-            mp.release()
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+        val t = Playback.open(this, Uri.parse(s.uri), attrs, loop = false, startVolume = 1f,
+            onComplete = { stopPreview() })
+        if (t == null) {
             Toast.makeText(this, "この曲は再生できませんでした", Toast.LENGTH_SHORT).show()
+        } else {
+            player = t
+            playingUri = s.uri
         }
         adapter.notifyDataSetChanged()
     }
 
     private fun stopPreview() {
-        player?.let { try { it.stop() } catch (_: Exception) { }; it.release() }
+        player?.release()
         player = null
         playingUri = null
         adapter.notifyDataSetChanged()

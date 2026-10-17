@@ -65,7 +65,7 @@ class AlarmService : Service() {
         }
     }
 
-    private var player: MediaPlayer? = null
+    private var player: Track? = null
     private val handler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
     private var current: Alarm? = null
@@ -170,7 +170,7 @@ class AlarmService : Service() {
 
     /** 選んだ曲からランダムに1曲（直前と同じ曲は避ける）。曲が終わったら次の曲へ */
     private fun playNext(a: Alarm) {
-        player?.let { try { it.release() } catch (_: Exception) { } }
+        player?.release()
         player = null
 
         val all = a.songs(this)
@@ -181,23 +181,15 @@ class AlarmService : Service() {
         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)?.let { candidates.add(it) }
 
         for (u in candidates) {
-            val mp = MediaPlayer()
-            try {
-                mp.setAudioAttributes(attrs)
-                mp.setDataSource(this, u)
-                // 1曲だけ・標準音ならループ、複数曲なら終わったら次へ
-                val multi = all.size > 1 && all.any { it.uri == u.toString() }
-                mp.isLooping = !multi
-                if (multi) mp.setOnCompletionListener { if (current != null) playNext(a) }
-                mp.setVolume(currentVolume, currentVolume)
-                mp.prepare()
-                mp.start()
-                player = mp
+            // 1曲だけ・標準音ならループ、複数曲なら終わったら次へ
+            val multi = all.size > 1 && all.any { it.uri == u.toString() }
+            val t = Playback.open(this, u, attrs, loop = !multi, startVolume = currentVolume,
+                onComplete = if (multi) ({ if (current != null) playNext(a) }) else null)
+            if (t != null) {
+                player = t
                 lastUri = u.toString()
                 getSharedPreferences("play", MODE_PRIVATE).edit().putString("last", lastUri).apply()
                 break
-            } catch (_: Exception) {
-                mp.release()
             }
         }
     }
@@ -211,14 +203,14 @@ class AlarmService : Service() {
             val t = if (total <= 0f) 1f else ((System.currentTimeMillis() - rampStart) / total).coerceIn(0f, 1f)
             val v = 0.03f + 0.97f * t * t   // 耳の感覚に合わせてカーブ
             currentVolume = v
-            try { mp.setVolume(v, v) } catch (_: Exception) { }
+            mp.setVolume(v)
             if (t < 1f) handler.postDelayed(this, 200)
         }
     }
 
     private fun stopPlayback() {
         handler.removeCallbacksAndMessages(null)
-        player?.let { try { it.stop() } catch (_: Exception) { }; it.release() }
+        player?.release()
         player = null
     }
 

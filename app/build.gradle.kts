@@ -13,6 +13,12 @@ android {
         targetSdk = 34
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+        // Galaxyなど最近のスマホ向け（アプリサイズを抑える）
+        ndk { abiFilters += listOf("arm64-v8a") }
+    }
+
+    packaging {
+        jniLibs { useLegacyPackaging = true }
     }
 
     // 固定の署名キー（毎回同じキーなので上書きアップデートできる）
@@ -44,4 +50,6 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // WMAなど標準で再生できない形式用
+    implementation("org.videolan.android:libvlc-all:3.6.0")
 }
