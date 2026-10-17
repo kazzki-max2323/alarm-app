@@ -142,41 +142,64 @@ class AlarmService : Service() {
         handler.postDelayed({ current?.let { Scheduler.snooze(this, it) }; finish() }, AUTO_STOP_MS)
     }
 
+    private var lastUri: String? = null
+    private var currentVolume = 0.03f
+
+    private val attrs = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ALARM)
+        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+        .build()
+
     private fun startPlayback(a: Alarm) {
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        val uris = buildList {
-            if (a.soundUri.isNotEmpty()) add(Uri.parse(a.soundUri))
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.let { add(it) }
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)?.let { add(it) }
-        }
-        for (u in uris) {
+        lastUri = getSharedPreferences("play", MODE_PRIVATE).getString("last", null)
+        currentVolume = 0.03f
+        playNext(a)
+        rampStart = System.currentTimeMillis()
+        handler.post(rampTick)
+    }
+
+    /** 選んだ曲からランダムに1曲（直前と同じ曲は避ける）。曲が終わったら次の曲へ */
+    private fun playNext(a: Alarm) {
+        player?.let { try { it.release() } catch (_: Exception) { } }
+        player = null
+
+        val songs = a.sounds.shuffled().toMutableList()
+        if (songs.size > 1 && songs.first().uri == lastUri) songs.add(songs.removeAt(0))
+        val candidates = songs.map { Uri.parse(it.uri) }.toMutableList()
+        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.let { candidates.add(it) }
+        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)?.let { candidates.add(it) }
+
+        for (u in candidates) {
+            val mp = MediaPlayer()
             try {
-                val mp = MediaPlayer()
                 mp.setAudioAttributes(attrs)
                 mp.setDataSource(this, u)
-                mp.isLooping = true
-                mp.setVolume(0f, 0f)
+                // 1曲だけ・標準音ならループ、複数曲なら終わったら次へ
+                val multi = a.sounds.size > 1 && a.sounds.any { it.uri == u.toString() }
+                mp.isLooping = !multi
+                if (multi) mp.setOnCompletionListener { if (current != null) playNext(a) }
+                mp.setVolume(currentVolume, currentVolume)
                 mp.prepare()
                 mp.start()
                 player = mp
+                lastUri = u.toString()
+                getSharedPreferences("play", MODE_PRIVATE).edit().putString("last", lastUri).apply()
                 break
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                mp.release()
+            }
         }
-        rampStart = System.currentTimeMillis()
-        handler.post(rampTick)
     }
 
     /** ゆっくり音量アップ */
     private val rampTick = object : Runnable {
         override fun run() {
             val a = current ?: return
-            val mp = player ?: return
+            val mp = player ?: run { handler.postDelayed(this, 200); return }
             val total = a.rampSec * 1000f
             val t = if (total <= 0f) 1f else ((System.currentTimeMillis() - rampStart) / total).coerceIn(0f, 1f)
             val v = 0.03f + 0.97f * t * t   // 耳の感覚に合わせてカーブ
+            currentVolume = v
             try { mp.setVolume(v, v) } catch (_: Exception) { }
             if (t < 1f) handler.postDelayed(this, 200)
         }

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/bg" android:orientation="vertical">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="64dp"
+        android:gravity="center_vertical" android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+        <ImageButton android:id="@+id/pickClose"
+            android:layout_width="56dp" android:layout_height="56dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close" android:contentDescription="閉じる" />
+        <TextView android:id="@+id/pickCount"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="@color/text" android:textSize="18sp" android:textStyle="bold" />
+        <TextView android:id="@+id/pickDone"
+            android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:gravity="center" android:paddingHorizontal="16dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:text="決定" android:textColor="@color/accent"
+            android:textSize="17sp" android:textStyle="bold" />
+    </LinearLayout>
+
+    <EditText android:id="@+id/pickSearch"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:layout_marginHorizontal="16dp" android:layout_marginBottom="8dp"
+        android:background="@drawable/search_bg" android:paddingHorizontal="18dp"
+        android:hint="曲名・アーティストで検索" android:textColorHint="@color/textOff"
+        android:textColor="@color/text" android:textSize="15sp"
+        android:inputType="text" android:maxLines="1" android:imeOptions="actionSearch" />
+
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingHorizontal="20dp" android:paddingBottom="6dp"
+        android:text="▶で試聴、曲をタップで選択。選んだ曲からランダムに流れます"
+        android:textColor="@color/textOff2" android:textSize="13sp" />
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1">
+        <ListView android:id="@+id/songList"
+            android:layout_width="match_parent" android:layout_height="match_parent"
+            android:divider="@null" android:fastScrollEnabled="true" />
+        <TextView android:id="@+id/pickEmpty"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="80dp" android:gravity="center" android:padding="24dp"
+            android:textColor="@color/textOff2" android:textSize="15sp" android:visibility="gone" />
+    </FrameLayout>
+
+    <TextView android:id="@+id/pickFiles"
+        android:layout_width="match_parent" android:layout_height="56dp"
+        android:gravity="center" android:background="?android:attr/selectableItemBackground"
+        android:text="＋ ファイルから追加" android:textColor="@color/accent"
+        android:textSize="15sp" android:textStyle="bold" />
+</LinearLayout>

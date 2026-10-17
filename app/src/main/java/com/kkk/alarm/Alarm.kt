@@ -9,6 +9,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
 
+data class Sound(val uri: String, val name: String)
+
 /** days: ビット0=日 … ビット6=土。0なら1回だけ */
 data class Alarm(
     val id: Int,
@@ -17,8 +19,7 @@ data class Alarm(
     var days: Int = 0b1111111,
     var enabled: Boolean = true,
     var label: String = "",
-    var soundUri: String = "",
-    var soundName: String = "",
+    var sounds: MutableList<Sound> = mutableListOf(),
     var snoozeMin: Int = 5,
     var rampSec: Int = 60,
 ) {
@@ -58,11 +59,27 @@ data class Alarm(
 
     fun toJson() = JSONObject().apply {
         put("id", id); put("hour", hour); put("minute", minute); put("days", days)
-        put("enabled", enabled); put("label", label); put("soundUri", soundUri)
-        put("soundName", soundName); put("snoozeMin", snoozeMin); put("rampSec", rampSec)
+        put("enabled", enabled); put("label", label); put("sounds", JSONArray().apply {
+            sounds.forEach { put(JSONObject().put("uri", it.uri).put("name", it.name)) }
+        })
+        put("snoozeMin", snoozeMin); put("rampSec", rampSec)
     }
 
     companion object {
+        private fun readSounds(o: JSONObject): MutableList<Sound> {
+            val list = mutableListOf<Sound>()
+            o.optJSONArray("sounds")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val s = arr.getJSONObject(i)
+                    list.add(Sound(s.getString("uri"), s.optString("name", "曲")))
+                }
+            }
+            // 旧バージョン（1曲だけ）の設定を引き継ぐ
+            val old = o.optString("soundUri", "")
+            if (list.isEmpty() && old.isNotEmpty()) list.add(Sound(old, o.optString("soundName", "曲")))
+            return list
+        }
+
         fun fromJson(o: JSONObject) = Alarm(
             id = o.getInt("id"),
             hour = o.optInt("hour", 7),
@@ -70,8 +87,7 @@ data class Alarm(
             days = o.optInt("days", 0b1111111),
             enabled = o.optBoolean("enabled", true),
             label = o.optString("label", ""),
-            soundUri = o.optString("soundUri", ""),
-            soundName = o.optString("soundName", ""),
+            sounds = readSounds(o),
             snoozeMin = o.optInt("snoozeMin", 5),
             rampSec = o.optInt("rampSec", 60),
         )

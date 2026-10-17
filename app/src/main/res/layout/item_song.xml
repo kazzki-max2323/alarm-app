@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical"
+    android:paddingHorizontal="16dp" android:paddingVertical="10dp"
+    android:descendantFocusability="blocksDescendants">
+
+    <ImageView android:id="@+id/songPlay"
+        android:layout_width="44dp" android:layout_height="44dp"
+        android:padding="10dp" android:contentDescription="試聴" />
+
+    <LinearLayout android:layout_width="0dp" android:layout_weight="1"
+        android:layout_height="wrap_content" android:orientation="vertical"
+        android:paddingHorizontal="14dp">
+        <TextView android:id="@+id/songTitle"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="16sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/songSub"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:textColor="@color/textOff2"
+            android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+
+    <ImageView android:id="@+id/songCheck"
+        android:layout_width="30dp" android:layout_height="30dp"
+        android:padding="5dp" android:contentDescription="選択" />
+</LinearLayout>

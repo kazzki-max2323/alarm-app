@@ -28,13 +28,9 @@ class EditActivity : AppCompatActivity() {
     private val snoozeOptions = intArrayOf(3, 5, 10, 15, 20, 30)
     private val rampOptions = intArrayOf(0, 30, 60, 120, 180, 300)
 
-    private val pickSound = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            try {
-                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: Exception) { }
-            alarm.soundUri = uri.toString()
-            alarm.soundName = fileName(uri)
+    private val pickSound = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        if (r.resultCode == RESULT_OK) {
+            alarm.sounds = SoundPickerActivity.readResult(r.data)
             updateCards()
         }
     }
@@ -49,7 +45,7 @@ class EditActivity : AppCompatActivity() {
         alarm = existing ?: Alarm(id = AlarmStore.newId(this)).also { a ->
             // 前回使った曲・設定を引き継ぐ
             AlarmStore.all(this).lastOrNull()?.let {
-                a.soundUri = it.soundUri; a.soundName = it.soundName
+                a.sounds = it.sounds.toMutableList()
                 a.snoozeMin = it.snoozeMin; a.rampSec = it.rampSec
             }
         }
@@ -87,7 +83,7 @@ class EditActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnClose).setOnClickListener { finish() }
         findViewById<View>(R.id.cardSound).setOnClickListener {
             stopPreview()
-            pickSound.launch(arrayOf("audio/*"))
+            pickSound.launch(SoundPickerActivity.intentFor(this, alarm.sounds))
         }
         findViewById<View>(R.id.cardSnooze).setOnClickListener {
             val labels = snoozeOptions.map { "${it}分" }.toTypedArray()
@@ -134,8 +130,16 @@ class EditActivity : AppCompatActivity() {
     }
 
     private fun updateCards() {
-        findViewById<TextView>(R.id.soundName).text =
-            alarm.soundName.ifEmpty { "標準のアラーム音（タップして曲を選択）" }
+        findViewById<TextView>(R.id.soundTitle).text = when (alarm.sounds.size) {
+            0 -> "標準"
+            1 -> "音楽"
+            else -> "音楽 ${alarm.sounds.size}曲（ランダム）"
+        }
+        findViewById<TextView>(R.id.soundName).text = when {
+            alarm.sounds.isEmpty() -> "アラーム音（タップして曲を選ぶ）"
+            alarm.sounds.size <= 3 -> alarm.sounds.joinToString("\n") { it.name }
+            else -> alarm.sounds.take(3).joinToString("\n") { it.name } + "\n他 ${alarm.sounds.size - 3}曲"
+        }
         findViewById<TextView>(R.id.snoozeValue).text = "${alarm.snoozeMin}分"
         findViewById<TextView>(R.id.rampValue).text = rampText(alarm.rampSec)
     }
@@ -152,8 +156,9 @@ class EditActivity : AppCompatActivity() {
 
     // プレビュー：5秒で音量が上がりきる
     private fun startPreview() {
-        val uri = if (alarm.soundUri.isNotEmpty()) Uri.parse(alarm.soundUri)
-        else RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        // 選んだ曲からランダムに1曲（鳴るときと同じ）
+        val uri = alarm.sounds.randomOrNull()?.let { Uri.parse(it.uri) }
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         try {
             val mp = MediaPlayer()
             mp.setAudioAttributes(AudioAttributes.Builder()
