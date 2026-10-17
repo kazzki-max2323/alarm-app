@@ -43,6 +43,8 @@ class AlarmService : Service() {
         const val ACTION_DISMISS = "dismiss"
         const val CHANNEL = "alarm_ring"
         private const val NOTIF_ID = 1
+        /** 鳴り始めの音量（一番小さい目盛りの上での割合）。小さすぎると聞こえない */
+        private const val START_GAIN = 0.4f
         private const val AUTO_STOP_MS = 10 * 60_000L   // 10分鳴り続けたら自動スヌーズ
 
         /** 鳴動画面を閉じるためのコールバック */
@@ -224,10 +226,10 @@ class AlarmService : Service() {
         val idx: Int
         if (t < phase1 && target > minIdx) {
             val x = t / phase1
-            gain = 0.02f + 0.98f * x * x
+            gain = START_GAIN + (1f - START_GAIN) * x
             idx = minIdx
         } else if (target <= minIdx) {
-            gain = 0.02f + 0.98f * t * t
+            gain = START_GAIN + (1f - START_GAIN) * t
             idx = minIdx
         } else {
             val x = (t - phase1) / (1f - phase1)
