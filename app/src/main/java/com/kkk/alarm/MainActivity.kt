@@ -31,6 +31,18 @@ class MainActivity : AppCompatActivity() {
         listView = findViewById(R.id.alarmList)
         banner = findViewById(R.id.banner)
         empty = findViewById(R.id.emptyText)
+        findViewById<View>(R.id.mainMenu).setOnClickListener { v ->
+            PopupMenu(this, v).apply {
+                menu.add(0, 1, 0, "最新版をチェック")
+                menu.add(0, 2, 1, "バージョン情報")
+                setOnMenuItemClickListener {
+                    if (it.itemId == 1) Updater.check(this@MainActivity)
+                    else Toast.makeText(this@MainActivity,
+                        "目覚まし build ${Updater.currentBuild(this@MainActivity)}", Toast.LENGTH_SHORT).show()
+                    true
+                }
+            }.show()
+        }
         findViewById<View>(R.id.fab).setOnClickListener {
             startActivity(Intent(this, EditActivity::class.java))
         }
