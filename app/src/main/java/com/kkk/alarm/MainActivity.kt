@@ -79,14 +79,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val on = a.enabled
-            time.setTextColor(getColor(if (on) R.color.text else R.color.textOff))
-            knob.setImageResource(if (on) R.drawable.ic_alarm else R.drawable.ic_close)
-            knob.setBackgroundResource(if (on) R.drawable.knob_on else R.drawable.knob_off)
-            knob.setColorFilter(getColor(if (on) R.color.bg else R.color.textOff2))
-            track.setBackgroundResource(if (on) R.drawable.track_on else R.drawable.track_off)
-            noteLine.setBackgroundColor(getColor(if (on) R.color.accent else R.color.textOff))
             note.setColorFilter(getColor(R.color.textOff2))
+            applyToggle(a.enabled, time, knob, track, noteLine, animate = false)
 
             toggle.setOnClickListener {
                 a.enabled = !a.enabled
@@ -94,7 +88,9 @@ class MainActivity : AppCompatActivity() {
                 Scheduler.schedule(this, a)
                 if (!a.enabled) Scheduler.cancelSnooze(this, a.id)
                 if (a.enabled) toastUntil(this, a)
-                render()
+                applyToggle(a.enabled, time, knob, track, noteLine, animate = true)
+                // スヌーズ表示などを更新（アニメーションが終わってから）
+                toggle.postDelayed({ if (!isFinishing) render() }, 320)
             }
             row.setOnClickListener { openEdit(a.id) }
             row.findViewById<View>(R.id.itemMore).setOnClickListener { v ->
@@ -108,6 +104,49 @@ class MainActivity : AppCompatActivity() {
                 }.show()
             }
             listView.addView(row)
+        }
+    }
+
+    /** トグルの見た目。ONは丸が右、OFFは丸が左。animate=trueならスライド */
+    private fun applyToggle(on: Boolean, time: TextView, knob: ImageView, track: View, noteLine: View, animate: Boolean) {
+        val d = resources.displayMetrics.density
+        val x = if (on) 24 * d else 0f
+        val dur = 260L
+
+        fun colors() {
+            knob.setImageResource(if (on) R.drawable.ic_alarm else R.drawable.ic_close)
+            knob.setBackgroundResource(if (on) R.drawable.knob_on else R.drawable.knob_off)
+            knob.setColorFilter(getColor(if (on) R.color.bg else R.color.textOff2))
+            track.setBackgroundResource(if (on) R.drawable.track_on else R.drawable.track_off)
+            noteLine.setBackgroundColor(getColor(if (on) R.color.accent else R.color.textOff))
+        }
+
+        if (!animate) {
+            knob.translationX = x
+            colors()
+            time.setTextColor(getColor(if (on) R.color.text else R.color.textOff))
+            return
+        }
+
+        // 丸がスライド＋くるっと回って、途中で色とアイコンが切り替わる
+        knob.animate().cancel()
+        knob.scaleX = 0.85f; knob.scaleY = 0.85f
+        knob.animate()
+            .translationX(x)
+            .scaleX(1f).scaleY(1f)
+            .rotation(if (on) 0f else -180f)
+            .setDuration(dur)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+            .withEndAction { knob.rotation = 0f }
+            .start()
+        knob.postDelayed({ colors() }, dur / 2)
+
+        val from = getColor(if (on) R.color.textOff else R.color.text)
+        val to = getColor(if (on) R.color.text else R.color.textOff)
+        android.animation.ValueAnimator.ofArgb(from, to).apply {
+            duration = dur
+            addUpdateListener { time.setTextColor(it.animatedValue as Int) }
+            start()
         }
     }
 

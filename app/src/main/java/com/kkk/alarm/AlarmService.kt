@@ -44,7 +44,7 @@ class AlarmService : Service() {
         const val CHANNEL = "alarm_ring"
         private const val NOTIF_ID = 1
         /** 鳴り始めの音量（一番小さい目盛りの上での割合）。小さすぎると聞こえない */
-        private const val START_GAIN = 0.4f
+        private const val START_GAIN = 0.6f
         private const val AUTO_STOP_MS = 10 * 60_000L   // 10分鳴り続けたら自動スヌーズ
 
         /** 鳴動画面を閉じるためのコールバック */

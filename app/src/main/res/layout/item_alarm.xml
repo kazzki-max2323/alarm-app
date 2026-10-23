@@ -8,13 +8,15 @@
 
     <!-- 丸いトグル -->
     <FrameLayout android:id="@+id/itemToggle"
-        android:layout_width="64dp" android:layout_height="56dp">
+        android:layout_width="76dp" android:layout_height="56dp">
         <View android:id="@+id/itemTrack"
-            android:layout_width="44dp" android:layout_height="32dp"
+            android:layout_width="64dp" android:layout_height="30dp"
+            android:layout_marginStart="6dp"
             android:layout_gravity="center_vertical|start" />
+        <!-- ONで右、OFFで左（位置はコードでアニメーション） -->
         <ImageView android:id="@+id/itemKnob"
             android:layout_width="52dp" android:layout_height="52dp"
-            android:layout_gravity="center_vertical|end"
+            android:layout_gravity="center_vertical|start"
             android:padding="12dp" android:elevation="2dp" />
     </FrameLayout>
 
