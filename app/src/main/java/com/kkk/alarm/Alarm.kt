@@ -245,6 +245,7 @@ object Scheduler {
         val at = System.currentTimeMillis() + min * 60_000L
         snoozePrefs(ctx).edit().putInt("count_${a.id}", count + 1).putLong("until_${a.id}", at).commit()
         setAt(ctx, at, pending(ctx, a.id, true))
+        SnoozeNotice.show(ctx, a, at)
     }
 
     /** スヌーズで次に鳴る時刻（スヌーズ中でなければ0） */
@@ -254,18 +255,24 @@ object Scheduler {
     }
 
     /** スヌーズの予約が鳴った */
-    fun snoozeFired(ctx: Context, id: Int) = snoozePrefs(ctx).edit().remove("until_$id").apply()
+    fun snoozeFired(ctx: Context, id: Int) {
+        snoozePrefs(ctx).edit().remove("until_$id").apply()
+        SnoozeNotice.hide(ctx, id)
+    }
 
     /** スヌーズをやめる（停止・削除・OFFのとき） */
     fun cancelSnooze(ctx: Context, id: Int) {
+        SnoozeNotice.hide(ctx, id)
         ctx.getSystemService(AlarmManager::class.java).cancel(pending(ctx, id, true))
         snoozePrefs(ctx).edit().remove("until_$id").remove("count_$id").apply()
     }
 
     fun snoozeCount(ctx: Context, id: Int) = snoozePrefs(ctx).getInt("count_$id", 0)
 
-    fun resetSnooze(ctx: Context, id: Int) =
+    fun resetSnooze(ctx: Context, id: Int) {
         snoozePrefs(ctx).edit().remove("count_$id").remove("until_$id").apply()
+        SnoozeNotice.hide(ctx, id)
+    }
 
     fun cancel(ctx: Context, id: Int) {
         ctx.getSystemService(AlarmManager::class.java).cancel(pending(ctx, id, false))
@@ -280,6 +287,7 @@ object Scheduler {
             if (until > 0L) {
                 val at = maxOf(until, System.currentTimeMillis() + 5_000L)
                 setAt(ctx, at, pending(ctx, a.id, true))
+                SnoozeNotice.show(ctx, a, at)
             }
         }
     }
